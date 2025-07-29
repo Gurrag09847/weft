@@ -21,6 +21,9 @@ tailwind-install:
 	
 	@chmod +x tailwindcss
 
+bob-gen:
+	@go run github.com/stephenafamo/bob/gen/bobgen-psql@latest -c ./config/bobgen.yaml
+
 build: tailwind-install templ-install
 	@echo "Building..."
 	@templ generate

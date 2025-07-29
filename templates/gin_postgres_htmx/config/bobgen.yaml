@@ -1,0 +1,3 @@
+psql:
+  # dsn: "postgres://melkey:password1234@localhost:5432/blueprint?sslmode=disable"
+  dsn: "postgresql://postgres.huqhlzpfbwlqjazqwksl:Gurrag090213@aws-0-eu-north-1.pooler.supabase.com:5432/postgres"

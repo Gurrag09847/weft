@@ -5,11 +5,11 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/spf13/cobra"
 )
 
@@ -51,67 +51,67 @@ func init() {
 }
 
 func createProject(projectName, templateName string) error {
-	templateRepo := "https://github.com/Gurrag09847/weft/tree/main/templates"
+	// Create temporary directory for full clone
+	tempDir := fmt.Sprintf("%s-temp", projectName)
+	defer os.RemoveAll(tempDir) // Clean up temp directory
 
-	repo, err := git.PlainClone(projectName, false, &git.CloneOptions{
+	// Clone the full repository to temp directory
+	templateRepo := "https://github.com/Gurrag09847/weft.git"
+	_, err := git.PlainClone(tempDir, false, &git.CloneOptions{
 		URL:      templateRepo,
 		Progress: os.Stdout,
-		Depth:    1,
+		Depth:    1, // Shallow clone for efficiency
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to clone template: %w", err)
 	}
 
-	worktree, err := repo.Worktree()
-
-		return fmt.Errorf("failed to get worktree: %w", err)
+	// Create the project directory
+	if err := os.MkdirAll(projectName, 0755); err != nil {
+		return fmt.Errorf("failed to create project directory: %w", err)
 	}
 
-	sparseCheckoutPath := fmt.Sprintf("templates/%s", templateName)
-	err = worktree.Checkout(&git.CheckoutOptions{
-		Hash:                      plumbing.ZeroHash,
-		Sparse                     CheckoutDirectories: []string{sparseCheckoutPath},
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to checkout sparse directory: %w", err)
+	// Copy only the specific template
+	templateDir := filepath.Join(tempDir, "templates", templateName)
+	if err := copyDir(templateDir, projectName); err != nil {
+		return fmt.Errorf("failed to copy template contents: %w", err)
 	}
 
-	// Move the template files to the root of the project directory
-		templateDir := filepath.Join(projectName, "templates", templateName)
-	err := moveContents(templateDir, projectName); err != nil {
-	turn fmt.Errorf("failed to move template contents: %w", err)
-		
-	
-	// Clean up - remove templates directory and .git
-	// Clean up - remove templates directory and .git
-	err := os.RemoveAll(templatesDir); err != nil {
-	turn fmt.Errorf("failed to remove templates directory: %w", err)
-		
-	
-	gitDir := filepath.Join(projectName, ".git")
-	err := os.RemoveAll(gitDir); err != nil {
-	turn fmt.Errorf("failed to remove .git directory: %w", err)
-		
-	
 	return nil
-	
+}
 
-func moveContents(src, dst string) error {
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if err := os.Rename(srcPath, dstPath); err != nil {
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
 			return err
 		}
-	}
 
-	return nil
+		// Calculate relative path
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		dstPath := filepath.Join(dst, relPath)
+
+		if info.IsDir() {
+			return os.MkdirAll(dstPath, info.Mode())
+		}
+
+		// Copy file
+		srcFile, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcFile.Close()
+
+		dstFile, err := os.Create(dstPath)
+		if err != nil {
+			return err
+		}
+		defer dstFile.Close()
+
+		_, err = io.Copy(dstFile, srcFile)
+		return err
+	})
 }
