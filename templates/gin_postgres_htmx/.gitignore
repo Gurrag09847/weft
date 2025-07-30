@@ -23,7 +23,8 @@ tmp/
 .idea
 
 # .env file
-.env
+# Uncomment this in production!!!!!
+# .env
 
 # Project build
 main
