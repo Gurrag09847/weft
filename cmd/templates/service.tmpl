@@ -1,0 +1,31 @@
+package {{.PackageName}}
+
+import (
+	"context"
+	"{{.ModulePath}}/internal/database"
+	"{{.ModulePath}}/models"
+	"time"
+)
+
+var dbTimeout = 3 * time.Second
+
+type Service interface {
+	Get{{.DomainPlural}}Service() (models.{{.DomainUpper}}Slice, error)
+}
+
+type service struct {
+	db database.Service
+}
+
+func NewService(db database.Service) Service {
+	return &service{
+		db: db,
+	}
+}
+
+func (s *service) Get{{.DomainPlural}}Service() (models.{{.DomainUpper}}Slice, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	return models.{{.DomainPlural}}.Query().All(ctx, s.db)
+}

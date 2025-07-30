@@ -6,7 +6,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"text/template"
@@ -37,7 +36,7 @@ to quickly create a Cobra application.`,
 		fields := extractFields(args[1:])
 		upSql, downSql := generateSql(tableName, fields)
 		fmt.Println(upSql, downSql)
-		// generateMigrationFile(tableName, upSql, downSql)
+		generateMigrationFile(tableName, upSql, downSql)
 	},
 }
 
@@ -109,8 +108,6 @@ func extractFields(fields []string) []Field {
 }
 
 func generateSqlField(field Field) string {
-
-	fmt.Println(field)
 
 	var sqlString strings.Builder
 
@@ -270,12 +267,4 @@ func generateMigrationFile(tableName string, sqlUpContent, sqlDownContent string
 	if err := createFile(rootPath+downName, sqlDownContent); err != nil {
 		cobra.CheckErr(err)
 	}
-}
-
-func createFile(path, content string) error {
-	err := os.WriteFile(path, []byte(content), 0644)
-	if err != nil {
-		return err
-	}
-	return nil
 }

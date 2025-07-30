@@ -1,0 +1,36 @@
+package {{.PackageName}}
+
+import (
+	"{{.ModulePath}}/internal/database"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+
+type Handler interface {
+	Get{{.DomainPlural}}Handler(c *gin.Context)
+}
+
+type handler struct {
+	service Service
+}
+
+func NewHandler(db *database.Service) Handler {
+	return &handler{
+		service: NewService(db),
+	}
+}
+
+func (h *handler) Get{{.DomainPlural}}Handler(c *gin.Context) {
+	{{.Plural}}, err := h.service.Get{{.DomainPlural}}Service()
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, {{.Plural}})
+}
