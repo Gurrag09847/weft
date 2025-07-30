@@ -5,11 +5,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +26,18 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		err := godotenv.Load()
+
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
+
 		fmt.Println("migrate called")
 	},
 }
 
 func init() {
+
 	rootCmd.AddCommand(migrateCmd)
 
 	// Here you will define your flags and configuration settings.
