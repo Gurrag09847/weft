@@ -16,7 +16,7 @@ type handler struct {
 	service Service
 }
 
-func NewHandler(db *database.Service) Handler {
+func NewHandler(db database.Service) Handler {
 	return &handler{
 		service: NewService(db),
 	}
