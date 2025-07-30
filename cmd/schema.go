@@ -4,12 +4,15 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/gertd/go-pluralize"
 	"github.com/spf13/cobra"
 )
 
@@ -30,8 +33,9 @@ to quickly create a Cobra application.`,
 		// modelName := args[0]
 		tableName := args[0]
 		fields := extractFields(args[1:])
-		fmt.Println("schema called", tableName, fields)
-		generateSql(tableName, fields)
+		sql := generateSql(tableName, fields)
+		fmt.Println(sql)
+		generateMigrationFile(tableName, sql)
 	},
 }
 
@@ -50,10 +54,13 @@ func init() {
 }
 
 type Field struct {
-	Name       string
-	Type       string
-	IsUnique   bool
-	IsRequired bool
+	Name         string
+	Type         string
+	IsUnique     bool
+	IsRequired   bool
+	IsPrimaryKey bool
+	Default      string
+	IsID         bool
 }
 
 func extractFields(fields []string) []Field {
@@ -78,13 +85,12 @@ func extractFields(fields []string) []Field {
 		}
 		if strings.Contains(fieldType, "!") {
 			field.IsRequired = true
-			fieldType = fieldType[:len(fieldType)-1]
+			fieldType = strings.ReplaceAll(fieldType, "!", "")
 		}
 
 		if strings.Contains(fieldType, "^") {
 			field.IsUnique = true
-
-			fieldType = fieldType[:len(fieldType)-1]
+			fieldType = strings.ReplaceAll(fieldType, "^", "")
 		}
 
 		field.Type = fieldType
@@ -99,13 +105,36 @@ func generateSqlField(field Field) string {
 
 	var sqlString strings.Builder
 
-	sqlString.WriteString(field.Name)
-	sqlString.WriteString(field.Type)
+	sqlString.WriteString(field.Name + " ")
+	sqlString.WriteString(sqlType[field.Type])
 
+	// if field.IsID {
+	// 	sqlString.WriteString(fmt.Sprintf(sqlType[field.Type], pluralize.NewClient().Singular(tableName)))
+	// } else {
+	// 	sqlString.WriteString(sqlType[field.Type])
+	// }
+
+	if field.IsRequired {
+		sqlString.WriteString(" NOT NULL")
+	}
+
+	if field.IsUnique {
+		sqlString.WriteString(" UNIQUE")
+	}
+
+	if field.IsPrimaryKey {
+		sqlString.WriteString(" PRIMARY KEY")
+	}
+
+	if field.Default != "" {
+		sqlString.WriteString(" DEFAULT " + field.Default)
+	}
+
+	sqlString.WriteString(";")
 	return sqlString.String()
 }
 
-func generateSql(tableName string, fields []Field) {
+func generateSql(tableName string, fields []Field) string {
 	tmpl, err := template.New("main").Parse(sqlTemplate)
 
 	if err != nil {
@@ -115,10 +144,52 @@ func generateSql(tableName string, fields []Field) {
 
 	sqlFields := make([]string, 0)
 
+	hasID := false
+	hasCreatedAt := false
+	// hasUpdatedAt := false
+
+	for _, field := range fields {
+		switch field.Name {
+		case "id":
+			hasID = true
+		case "created_at":
+			hasCreatedAt = true
+		case "updated_at":
+			// hasUpdatedAt = true
+		}
+	}
+
+	if !hasID {
+		fieldString := generateSqlField(Field{
+			Name:         "id",
+			Type:         "nanoid",
+			IsPrimaryKey: true,
+			Default:      fmt.Sprintf("nanoid('%s_', 25)", pluralize.NewClient().Singular(tableName)),
+		})
+		sqlFields = append(sqlFields, fieldString)
+	}
+
 	for _, field := range fields {
 		fieldString := generateSqlField(field)
 		sqlFields = append(sqlFields, fieldString)
 	}
+
+	if !hasCreatedAt {
+		sqlFields = append(sqlFields, generateSqlField(Field{
+			Name:    "created_at",
+			Type:    "datetime",
+			Default: "NOW()",
+		}))
+	}
+
+	// if !hasUpdatedAt {
+	// 	sqlFields = append(sqlFields, generateSqlField(Field{
+	// 		Name:    "updated_at",
+	// 		Type:    "datetime",
+	// 		Default: "NOW()",
+	// 	}))
+	//
+	// }
 
 	data := struct {
 		TableName string
@@ -128,10 +199,70 @@ func generateSql(tableName string, fields []Field) {
 		Fields:    sqlFields,
 	}
 
-	err = tmpl.Execute(os.Stdout, data)
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+
+	return buf.String()
 
 }
 
-var sqlType map[string]string = map[string]string{
-	"string": "VARCHAR(255)",
+var sqlType = map[string]string{
+	"string":    "VARCHAR(255)",
+	"text":      "TEXT",
+	"int":       "INTEGER",
+	"int32":     "INTEGER",
+	"int64":     "BIGINT",
+	"float":     "REAL",
+	"float32":   "REAL",
+	"float64":   "DOUBLE PRECISION",
+	"bool":      "BOOLEAN",
+	"boolean":   "BOOLEAN",
+	"uuid":      "UUID",
+	"date":      "DATE",
+	"datetime":  "TIMESTAMP",
+	"time":      "TIME",
+	"json":      "JSON",
+	"jsonb":     "JSONB",
+	"bytea":     "BYTEA",
+	"serial":    "SERIAL",
+	"bigserial": "BIGSERIAL",
+	"nanoid":    "TEXT",
+}
+
+func generateMigrationFile(tableName string, sqlContent string) {
+	migratonDir := os.Getenv("MIGRATION_DIR")
+	if migratonDir == "" {
+		cobra.CheckErr("No migration directory provided.")
+	}
+
+	_, err := os.ReadDir(migratonDir)
+
+	if err != nil {
+		cobra.CheckErr("The migration directory wasn't found.")
+	}
+
+	timestamp := time.Now().Format("20060102150405")
+
+	upName := fmt.Sprintf("%s_create_%s_table.up.sql", timestamp, tableName)
+	downName := fmt.Sprintf("%s_create_%s_table.down.sql", timestamp, tableName)
+
+	rootPath := migratonDir + "/"
+	if err := createFile(rootPath+upName, sqlContent); err != nil {
+		cobra.CheckErr(err)
+	}
+
+	if err := createFile(rootPath+upName, sqlContent); err != nil {
+		cobra.CheckErr(err)
+	}
+	if err := createFile(rootPath+downName, ""); err != nil {
+		cobra.CheckErr(err)
+	}
+}
+
+func createFile(path, content string) error {
+	err := os.WriteFile(path, []byte(content), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
