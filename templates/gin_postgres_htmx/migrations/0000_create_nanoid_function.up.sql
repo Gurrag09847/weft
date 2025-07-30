@@ -10,7 +10,7 @@ DROP FUNCTION IF EXISTS nanoid_extract_timestamp CASCADE;
 CREATE OR REPLACE FUNCTION nanoid_optimized(size int, alphabet text, mask int, step int)
     RETURNS text
     LANGUAGE plpgsql
-    VOLATILE LEAKPROOF PARALLEL SAFE
+    VOLATILE PARALLEL SAFE
     AS $$
 DECLARE
     idBuilder text := '';
@@ -48,7 +48,7 @@ CREATE OR REPLACE FUNCTION nanoid_sortable(
 )
     RETURNS text
     LANGUAGE plpgsql
-    VOLATILE LEAKPROOF PARALLEL SAFE
+    VOLATILE PARALLEL SAFE
     AS $$
 DECLARE
     timestamp_ms bigint;
@@ -130,7 +130,7 @@ CREATE OR REPLACE FUNCTION nanoid(
 )
     RETURNS text
     LANGUAGE plpgsql
-    VOLATILE LEAKPROOF PARALLEL SAFE
+    VOLATILE PARALLEL SAFE
     AS $$
 DECLARE
     random_size int;
@@ -185,7 +185,7 @@ CREATE OR REPLACE FUNCTION nanoid_extract_timestamp(
 )
     RETURNS timestamp
     LANGUAGE plpgsql
-    IMMUTABLE LEAKPROOF PARALLEL SAFE
+    IMMUTABLE PARALLEL SAFE
     AS $$
 DECLARE
     timestamp_encoded text;

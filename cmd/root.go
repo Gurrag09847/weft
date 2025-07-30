@@ -10,9 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-//go:embed template.tmpl
-var sqlTemplate string
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "weft",
@@ -47,4 +44,27 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func getMigrationDir() string {
+	migratonDir := os.Getenv("MIGRATION_DIR")
+	if migratonDir == "" {
+		cobra.CheckErr("No migration directory provided.")
+	}
+
+	_, err := os.ReadDir(migratonDir)
+
+	if err != nil {
+		cobra.CheckErr("The migration directory wasn't found.")
+	}
+
+	return migratonDir
+}
+
+func getDatabaseURL() string {
+	url := os.Getenv("PSQL_DSN")
+	if url == "" {
+		cobra.CheckErr("No database url provided.")
+	}
+	return url
 }

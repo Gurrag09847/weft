@@ -12,11 +12,12 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Gurrag09847/weft/cmd/templates"
 	"github.com/gertd/go-pluralize"
 	"github.com/spf13/cobra"
 )
 
-var fieldRegex = regexp.MustCompile("^([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z][a-zA-Z0-9]*(?:\\\\([0-9,\\\\s]*\\\\))?)(!)?([\\\\^])?$")
+var fieldRegex = regexp.MustCompile(`^([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z][a-zA-Z0-9_]*(?:\([0-9,\s]*\))?)([!^]{0,2})?(?:=(.*))?$`)
 
 // schemaCmd represents the schema command
 var schemaCmd = &cobra.Command{
@@ -33,9 +34,9 @@ to quickly create a Cobra application.`,
 		// modelName := args[0]
 		tableName := args[0]
 		fields := extractFields(args[1:])
-		sql := generateSql(tableName, fields)
-		fmt.Println(sql)
-		generateMigrationFile(tableName, sql)
+		upSql, downSql := generateSql(tableName, fields)
+		fmt.Println(upSql)
+		generateMigrationFile(tableName, upSql, downSql)
 	},
 }
 
@@ -60,7 +61,6 @@ type Field struct {
 	IsRequired   bool
 	IsPrimaryKey bool
 	Default      string
-	IsID         bool
 }
 
 func extractFields(fields []string) []Field {
@@ -70,27 +70,27 @@ func extractFields(fields []string) []Field {
 		matches := fieldRegex.FindStringSubmatch(f)
 
 		if matches == nil {
-			cobra.CheckErr("Field format must be name:type[!][^]")
+			cobra.CheckErr("Field format must be name:type[!][^][=default]")
 		}
 
-		parts := strings.Split(f, ":")
-
-		if len(parts) != 2 {
-			cobra.CheckErr("Field format must be name:type[!][^]")
-		}
-
-		fieldType := parts[1]
+		fieldType := matches[2]
 		field := Field{
-			Name: parts[0],
+			Name: matches[1],
 		}
-		if strings.Contains(fieldType, "!") {
+		modifiers := matches[3]
+		if strings.Contains(modifiers, "!") {
 			field.IsRequired = true
 			fieldType = strings.ReplaceAll(fieldType, "!", "")
 		}
 
-		if strings.Contains(fieldType, "^") {
+		if strings.Contains(modifiers, "^") {
 			field.IsUnique = true
 			fieldType = strings.ReplaceAll(fieldType, "^", "")
+		}
+
+		if matches[4] != "" {
+			field.Default = matches[4]
+
 		}
 
 		field.Type = fieldType
@@ -130,12 +130,11 @@ func generateSqlField(field Field) string {
 		sqlString.WriteString(" DEFAULT " + field.Default)
 	}
 
-	sqlString.WriteString(";")
 	return sqlString.String()
 }
 
-func generateSql(tableName string, fields []Field) string {
-	tmpl, err := template.New("main").Parse(sqlTemplate)
+func generateSql(tableName string, fields []Field) (string, string) {
+	upTmpl, err := template.New("main").Parse(templates.UpTemplate)
 
 	if err != nil {
 		fmt.Println(err)
@@ -200,10 +199,24 @@ func generateSql(tableName string, fields []Field) string {
 	}
 
 	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, data)
+	err = upTmpl.Execute(&buf, data)
 
-	return buf.String()
+	downTempl, err := template.New("down").Parse(templates.DownTemplate)
 
+	if err != nil {
+		fmt.Println(err)
+		cobra.CheckErr("Failed to parse template")
+	}
+
+	downData := struct {
+		TableName string
+	}{
+		TableName: tableName,
+	}
+
+	var downBuf bytes.Buffer
+	err = downTempl.Execute(&downBuf, downData)
+	return buf.String(), downBuf.String()
 }
 
 var sqlType = map[string]string{
@@ -229,32 +242,19 @@ var sqlType = map[string]string{
 	"nanoid":    "TEXT",
 }
 
-func generateMigrationFile(tableName string, sqlContent string) {
-	migratonDir := os.Getenv("MIGRATION_DIR")
-	if migratonDir == "" {
-		cobra.CheckErr("No migration directory provided.")
-	}
-
-	_, err := os.ReadDir(migratonDir)
-
-	if err != nil {
-		cobra.CheckErr("The migration directory wasn't found.")
-	}
-
+func generateMigrationFile(tableName string, sqlUpContent, sqlDownContent string) {
+	migratonDir := getMigrationDir()
 	timestamp := time.Now().Format("20060102150405")
 
 	upName := fmt.Sprintf("%s_create_%s_table.up.sql", timestamp, tableName)
 	downName := fmt.Sprintf("%s_create_%s_table.down.sql", timestamp, tableName)
 
 	rootPath := migratonDir + "/"
-	if err := createFile(rootPath+upName, sqlContent); err != nil {
+	if err := createFile(rootPath+upName, sqlUpContent); err != nil {
 		cobra.CheckErr(err)
 	}
 
-	if err := createFile(rootPath+upName, sqlContent); err != nil {
-		cobra.CheckErr(err)
-	}
-	if err := createFile(rootPath+downName, ""); err != nil {
+	if err := createFile(rootPath+downName, sqlDownContent); err != nil {
 		cobra.CheckErr(err)
 	}
 }

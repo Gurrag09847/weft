@@ -1,6 +1,6 @@
 CREATE TABLE {{.TableName}} (
 {{- range $index, $field := .Fields}}
-{{- if $index}}{{end}}
+{{- if $index}},{{end}}
     {{$field}}
 {{- end}}
 );
