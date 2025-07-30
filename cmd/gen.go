@@ -5,9 +5,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 

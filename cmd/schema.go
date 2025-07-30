@@ -36,8 +36,8 @@ to quickly create a Cobra application.`,
 		tableName := args[0]
 		fields := extractFields(args[1:])
 		upSql, downSql := generateSql(tableName, fields)
-		fmt.Println(upSql)
-		generateMigrationFile(tableName, upSql, downSql)
+		fmt.Println(upSql, downSql)
+		// generateMigrationFile(tableName, upSql, downSql)
 	},
 }
 
@@ -56,12 +56,14 @@ func init() {
 }
 
 type Field struct {
-	Name         string
-	Type         string
-	IsUnique     bool
-	IsRequired   bool
-	IsPrimaryKey bool
-	Default      string
+	Name           string
+	Type           string
+	IsUnique       bool
+	IsRequired     bool
+	IsPrimaryKey   bool
+	Default        string
+	IsReference    bool
+	ReferenceField string
 }
 
 func extractFields(fields []string) []Field {
@@ -89,12 +91,16 @@ func extractFields(fields []string) []Field {
 			fieldType = strings.ReplaceAll(fieldType, "^", "")
 		}
 
-		if matches[4] != "" {
-			field.Default = matches[4]
-
-		}
-
 		field.Type = fieldType
+
+		if matches[4] != "" && matches[2] != "reference" {
+			field.Default = matches[4]
+		} else if matches[2] == "reference" {
+			field.IsReference = true
+			field.ReferenceField = matches[4]
+			field.Type = "text"
+			field.Name = field.Name + "_id"
+		}
 
 		newFields = append(newFields, field)
 	}
@@ -103,6 +109,8 @@ func extractFields(fields []string) []Field {
 }
 
 func generateSqlField(field Field) string {
+
+	fmt.Println(field)
 
 	var sqlString strings.Builder
 
@@ -127,8 +135,12 @@ func generateSqlField(field Field) string {
 		sqlString.WriteString(" PRIMARY KEY")
 	}
 
-	if field.Default != "" {
+	if field.Default != "" && !field.IsReference {
 		sqlString.WriteString(" DEFAULT " + field.Default)
+	}
+
+	if field.IsReference {
+		sqlString.WriteString(fmt.Sprintf(" REFERENCES %s(id)", field.ReferenceField))
 	}
 
 	return sqlString.String()
