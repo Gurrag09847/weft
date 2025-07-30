@@ -5,8 +5,10 @@ package cmd
 
 import (
 	_ "embed"
+	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -67,4 +69,13 @@ func getDatabaseURL() string {
 		cobra.CheckErr("No database url provided.")
 	}
 	return url
+}
+
+func loadENV() {
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 }

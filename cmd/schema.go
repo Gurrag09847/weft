@@ -31,6 +31,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		loadENV()
 		// modelName := args[0]
 		tableName := args[0]
 		fields := extractFields(args[1:])
