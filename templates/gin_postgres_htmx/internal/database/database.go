@@ -11,10 +11,14 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/stephenafamo/scan"
 )
 
 // Service represents a service that interacts with a database.
 type Service interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryContext(context.Context, string, ...any) (scan.Rows, error)
+
 	// Health returns a map of health status information.
 	// The keys and values in the map are service-specific.
 	Health() map[string]string
@@ -52,6 +56,14 @@ func New() Service {
 		db: db,
 	}
 	return dbInstance
+}
+
+func (s *service) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return s.db.ExecContext(ctx, query, args...)
+}
+
+func (s *service) QueryContext(ctx context.Context, query string, args ...any) (scan.Rows, error) {
+	return s.db.QueryContext(ctx, query, args...)
 }
 
 // Health checks the health of the database connection by pinging the database.
