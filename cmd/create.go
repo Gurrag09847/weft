@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var templateAlternatives map[string]string = map[string]string{
+	"api":  "gin_postgres",
+	"htmx": "gin_postgres_htmx",
+}
+
 // createCmd represents the create command
 var createCmd = &cobra.Command{
 	Use:   "create",
@@ -28,9 +33,16 @@ to quickly create a Cobra application.`,
 		fmt.Println("Creating project....")
 
 		if args[0] == "" {
-			fmt.Println("provide a proejct name")
+			fmt.Println("provide a project name")
 		}
-		createProject(args[0], "gin_postgres_htmx")
+
+		v, ok := templateAlternatives[args[1]]
+
+		if !ok {
+			cobra.CheckErr("project type must be either api or htmx.")
+		}
+
+		createProject(args[0], v)
 
 		fmt.Println("Created project!")
 	},
