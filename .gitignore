@@ -24,7 +24,7 @@ tmp/
 
 # .env file
 # Uncomment this in production!!!!!
-.env
+# .env
 
 # Project build
 main
