@@ -1,0 +1,3 @@
+psql:
+  dsn: "postgresql://blueprint_user:securepassword@psql_bp:5432/blueprint_db?sslmode=disable"
+  queries: ./queries
