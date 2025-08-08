@@ -36,7 +36,7 @@ to quickly create a Cobra application.`,
 		fields := extractFields(args[1:])
 		upSql, downSql := generateSql(tableName, fields)
 		fmt.Println(upSql, downSql)
-		generateMigrationFile(tableName, upSql, downSql)
+		generateCreationMigrationFile(tableName, upSql, downSql)
 	},
 }
 
@@ -252,7 +252,7 @@ var sqlType = map[string]string{
 	"nanoid":    "TEXT",
 }
 
-func generateMigrationFile(tableName string, sqlUpContent, sqlDownContent string) {
+func generateCreationMigrationFile(tableName string, sqlUpContent, sqlDownContent string) {
 	migratonDir := getMigrationDir()
 	timestamp := time.Now().Format("20060102150405")
 
